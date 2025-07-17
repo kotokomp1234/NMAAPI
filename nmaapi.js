@@ -25,7 +25,7 @@
         window.addEventListener('load', () => {
             const iframe = document.querySelector('iframe');
             if (!iframe || !iframe.contentWindow) {
-                console.error('Iframe or contentWindow not available');
+                console.error('Parent: Iframe or contentWindow not available');
                 return;
             }
             try {
@@ -91,6 +91,21 @@
                 clearInterval(checkNmaapi);
             }
         }, 500);
+        // Stop checking after 10 seconds to avoid infinite loop
+        setTimeout(() => {
+            if (!isNmaapiReady) {
+                console.warn('Child: NMAAPI_READY not received after 10 seconds');
+                clearInterval(checkNmaapi);
+            }
+        }, 10000);
+
+        // Send transaction request (child only)
+        window.nmaapi.sendTransaction = async function(amount, network, address, token) {
+            if (!isNmaapiReady) {
+                throw new Error('Wallet API not initialized. Please wait for parent site to send NMAAPI_READY.');
+            }
+            return await sendTransactionRequest(amount, network, address, token);
+        };
     }
 
     // Execute transaction (parent only)
@@ -127,10 +142,6 @@
         return new Promise((resolve, reject) => {
             if (!window.parent) {
                 reject(new Error('Parent window not accessible'));
-                return;
-            }
-            if (!isNmaapiReady) {
-                reject(new Error('Wallet API not ready'));
                 return;
             }
 
