@@ -8,6 +8,15 @@
                 throw new Error('API кошелька не инициализирован. Ожидайте NMAAPI_READY от родительской страницы.');
             }
             return await sendTransactionRequest(amount, network, address, token);
+        },
+        sendNSTransaction: async function(amount, icon, name, botKey) {
+            if (!window.nmaapi) {
+                throw new Error('API кошелька не загружен. Убедитесь, что nmaapi.js включён.');
+            }
+            if (!isNmaapiReady) {
+                throw new Error('API кошелька не инициализирован. Ожидайте NMAAPI_READY от родительской страницы.');
+            }
+            return await sendNSTransactionRequest(amount, icon, name, botKey);
         }
     };
     window.nmaapi = nmaapi;
@@ -51,6 +60,34 @@
             window.addEventListener('message', function handler(event) {
                 if (event.data.type === 'TRANSACTION_RESPONSE') {
                     console.log('Дитя: Получен TRANSACTION_RESPONSE:', event.data.payload);
+                    const { success, transactionId, error } = event.data.payload;
+                    if (success) {
+                        resolve(transactionId);
+                    } else {
+                        reject(new Error(error));
+                    }
+                    window.removeEventListener('message', handler);
+                }
+            });
+        });
+    }
+
+    function sendNSTransactionRequest(amount, icon, name, botKey) {
+        return new Promise((resolve, reject) => {
+            if (!window.parent) {
+                reject(new Error('Родительское окно недоступно'));
+                return;
+            }
+
+            console.log('Дитя: Отправка NS_TRANSACTION_REQUEST:', { amount, icon, name, botKey });
+            window.parent.postMessage({
+                type: 'NS_TRANSACTION_REQUEST',
+                payload: { amount, icon, name, botKey }
+            }, '*');
+
+            window.addEventListener('message', function handler(event) {
+                if (event.data.type === 'NS_TRANSACTION_RESPONSE') {
+                    console.log('Дитя: Получен NS_TRANSACTION_RESPONSE:', event.data.payload);
                     const { success, transactionId, error } = event.data.payload;
                     if (success) {
                         resolve(transactionId);
